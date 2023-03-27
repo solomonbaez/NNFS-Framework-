@@ -28,3 +28,21 @@ class RegressionAccuracy(Accuracy):
     def compare(self, inputs, targets):
         # return simulated accuracy
         return np.absolute(inputs - targets) < self.precision
+
+
+# accuracy calculation for categorical models
+class CategoricalAccuracy(Accuracy):
+    def __init__(self, *, binary=False):
+        # initialize whether binary logistic regression is used
+        self.binary = binary
+
+    # initialization is required per the model module but not required for this object
+    def initialize(self, inputs):
+        pass
+
+    # compare predictions to ground truths
+    def compare(self, inputs, targets):
+        if not self.binary and len(targets.shape) == 2:
+            targets = np.argmax(targets, axis=1)
+
+        return inputs == targets

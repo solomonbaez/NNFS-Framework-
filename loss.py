@@ -7,7 +7,7 @@ class Loss:
     def store_trainable_layers(self, trainable):
         self.trainable = trainable
 
-    # calculate data and regulazation loss
+    # calculate regularization loss
     def regularization(self):
         # initialize regularization loss
         loss_r = 0
@@ -30,10 +30,16 @@ class Loss:
 
         return loss_r
 
-    def calculate(self, output, y):
-        sample_loss = self.forward(output, y)
+    # calculate data loss and return losses
+    def calculate(self, inputs, targets, regularization=False):
+        sample_loss = self.forward(inputs, targets)
 
-        return np.mean(sample_loss), self.regularization()
+        data_loss = np.mean(sample_loss)
+
+        if not regularization: return data_loss
+
+        return data_loss, self.regularization()
+
 
 
 # Categorical Cross Entropy loss function

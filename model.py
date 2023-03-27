@@ -54,7 +54,7 @@ class Model:
         self.loss.store_trainable_layers(self.trainable)
 
     # train the model
-    def train(self, X, y, *, epochs=1, report=1):
+    def train(self, X, y, *, epochs=1, report=1, validation=None):
         # initialize the accuracy object
         self.accuracy.initialize(y)
 
@@ -64,8 +64,8 @@ class Model:
             # forward pass
             output = self.forward(X)
 
-            # calculate data and regularization losses
-            data_loss, reg_loss = self.loss.calculate(output, y)
+            # calculate data and regularization losses if applicable
+            data_loss, reg_loss = self.loss.calculate(output, y, regularization=True)
 
             # calculate overall loss
             loss = data_loss + reg_loss
@@ -91,6 +91,25 @@ class Model:
                       f"data_loss: {data_loss:.3f}, " +
                       f"regularization_loss: {reg_loss:.3f}, " +
                       f"lr: {self.optimizer.current_lr:.3f}")
+
+        # validate the model if validation data is supplied
+        if validation:
+            X_val, y_val = validation
+
+            # forward pass
+            output_val = self.forward(X_val)
+
+            # calculate loss
+            loss_val = self.loss.calculate(output_val, y_val)
+
+            # calculate accuracy
+            predictions_val = self.activation.predict(output_val)
+            accuracy_val = self.accuracy.calculate(predictions_val, y_val)
+
+            # report validation performance
+            print(f"validation, " +
+                  f"accuracy: {accuracy_val:.3f}, " +
+                  f"loss: {loss_val:.3f}")
 
     # forward pass
     def forward(self, X):
