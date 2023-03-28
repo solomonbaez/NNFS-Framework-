@@ -5,12 +5,26 @@ import numpy as np
 class Accuracy:
 
     # calculate accuracy given predictions and ground truths
-    def calculate(self, inputs, targets):
+    def calculate(self, inputs, targets, accumulating=False):
         # compare inputs and targets
         comparisons = self.compare(inputs, targets)
 
+        if accumulating:
+            # account for accumulated losses and sums
+            self.accumulated_sum += np.sum(comparisons)
+            self.accumulated_count += len(comparisons)
+
         # return accuracy
         return np.mean(comparisons)
+
+    # calculate accumulated accuracy
+    def accumulate(self):
+        return self.accumulated_sum / self.accumulated_count
+
+    # reset accumulated accuracy
+    def reset(self):
+        self.accumulated_sum = 0
+        self.accumulated_count = 0
 
 
 # accuracy calculation for regression models

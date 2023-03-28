@@ -31,15 +31,35 @@ class Loss:
         return loss_r
 
     # calculate data loss and return losses
-    def calculate(self, inputs, targets, regularization=False):
+    def calculate(self, inputs, targets, regularization=False, accumulating=False):
         sample_loss = self.forward(inputs, targets)
 
         data_loss = np.mean(sample_loss)
+
+        if accumulating:
+            # account for accumulated losses and sums
+            self.accumulated_sum += np.sum(sample_loss)
+            self.accumulated_count += len(sample_loss)
 
         if not regularization: return data_loss
 
         return data_loss, self.regularization()
 
+    # calculate accumulated loss
+    def accumulate(self, *, regularization=False):
+
+        # calculate mean loss:
+        data_loss = self.accumulated_sum / self.accumulated_count
+
+        # return data loss if regularization is disabled
+        if not regularization: return data_loss
+
+        return data_loss, self.regularization()
+
+    # reset accumulated loss
+    def reset(self):
+        self.accumulated_sum = 0
+        self.accumulated_count = 0
 
 
 # Categorical Cross Entropy loss function
