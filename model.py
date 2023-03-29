@@ -1,3 +1,6 @@
+import numpy as np
+import pickle
+import copy
 from layers import InputLayer
 from activators import SoftMax, SoftMaxCCE
 from loss import LossCCE
@@ -15,10 +18,65 @@ class Model:
         self.layers.append(layer)
 
     # set loss method and optimizer type
-    def set(self, *, loss, optimizer, accuracy):
-        self.loss = loss
-        self.optimizer = optimizer
-        self.accuracy = accuracy
+    def set(self, *, loss=None, optimizer=None, accuracy=None):
+        if loss: self.loss = loss
+        if optimizer: self.optimizer = optimizer
+        if accuracy: self.accuracy = accuracy
+
+    # retrieve trainable layer parameters
+    def get_parameters(self):
+        parameters = []
+
+        for layer in self.trainable:
+            parameters.append(layer.get())
+
+        return parameters
+
+    # save the model
+    def save(self, path):
+        model = copy.deepcopy(self)
+        # reset accumulation
+        model.loss.reset()
+        model.accuracy.reset()
+
+        # clean inputs and losses
+        model.layer_input.__dict__.pop("output", None)
+        model.loss.__dict__.pop("dinputs", None)
+
+        # clean layer properties
+        for layer in model.layers:
+            for property in ["inputs", "output", "dinputs",
+                             "dweights", "dbiases"]:
+                layer.__dict__.pop(property, None)
+
+        # save model to path
+        with open(path, "wb") as f:
+            pickle.dump(model, f)
+
+    # load and return a model
+    @staticmethod
+    def load(path):
+        # open in binary-read mode
+        with open(path, "rb") as f:
+            model = pickle.load(f)
+
+        return model
+
+    # update model parameters
+    def update_parameters(self, settings):
+        for parameter, layer in zip(settings, self.trainable):
+            layer.set(*parameter)
+
+    # save model parameters to file
+    def storage(self, path, save=False, load=False):
+        # open and save parameters to a binary file
+        if save:
+            with open(path, "wb") as f:
+                pickle.dump(self.get_parameters(), f)
+
+        if load:
+            with open(path, "rb") as f:
+                self.update_parameters(pickle.load(f))
 
     # finalize the model
     def finalize(self):
@@ -54,7 +112,8 @@ class Model:
                 self.trainable.append(self.layers[i])
 
         # load trainable layers into the loss object
-        self.loss.store_trainable_layers(self.trainable)
+        if self.loss:
+            self.loss.store_trainable_layers(self.trainable)
 
         # determine if SoftMaxCCE is utilized
         if isinstance(self.layers[-1], SoftMax) and \
@@ -69,24 +128,12 @@ class Model:
         # pre-set epoch steps
         steps = 1
 
-        if validation:
-            steps_val = 1
-            X_val, y_val = validation
-
         # if data is sliced, determine epoch steps
         if batches:
             steps = len(X) // batches
-            print(f"batch_steps: {steps}")
             # check for overflow
             if steps * batches < len(X):
                 steps += 1
-
-            if validation:
-                steps_val = len(X_val) // batches
-                print(f"val_steps: {steps_val}")
-                # check for overflow
-                if steps_val * batches < len(X_val):
-                    steps_val += 1
 
         # training loop
         for epoch in range(1, epochs + 1):
@@ -152,38 +199,8 @@ class Model:
 
             # batch validate if needed
             if validation:
-
-                # reset accumulation
-                self.loss.reset()
-                self.accuracy.reset()
-
-                for step in range(steps_val):
-                    if not step % report or step == step - 1:
-                        print(f"batch validation step: {step}")
-                    if batches:
-                        X_batch = X_val
-                        y_batch = y_val
-                    else:
-                        X_batch = X_val[step*batches:(step+1)*batches]
-                        y_batch = y_val[step*batches:(step+1)*batches]
-
-                    # forward pass
-                    output_val = self.forward(X_batch, training=False)
-
-                    # calculate loss
-                    self.loss.calculate(output_val, y_batch, accumulating=True)
-
-                    # calculate accuracy
-                    predictions_val = self.activation.predict(output_val)
-                    self.accuracy.calculate(predictions_val, y_batch, accumulating=True)
-
-                # report validation performance
-                loss_val = self.loss.accumulate()
-                accuracy_val = self.accuracy.accumulate()
-
-                print(f"validation, " +
-                      f"accuracy: {accuracy_val:.3f}, " +
-                      f"loss: {loss_val:.3f}")
+                print("validating...")
+                self.evaluate(*validation, batches)
 
     # forward pass
     def forward(self, X, training):
@@ -223,3 +240,70 @@ class Model:
         # reverse the linked list to backpropogate the model
         for layer in reversed(self.layers):
             layer.backward(layer.next.dinputs)
+
+    # evaluate model performance
+    def evaluate(self, X_val, y_val, batches=None):
+        steps_val = 1
+
+        # if data is sliced, determine epoch steps
+        if batches:
+            steps_val = len(X_val) // batches
+            # check for overflow
+            if steps_val * batches < len(X_val):
+                steps_val += 1
+
+        # reset accumulation
+        self.loss.reset()
+        self.accuracy.reset()
+
+        for step in range(steps_val):
+            if not batches:
+                X_batch = X_val
+                y_batch = y_val
+            else:
+                X_batch = X_val[step * batches:(step + 1) * batches]
+                y_batch = y_val[step * batches:(step + 1) * batches]
+
+            # forward pass
+            output_val = self.forward(X_batch, training=False)
+
+            # calculate loss
+            self.loss.calculate(output_val, y_batch, accumulating=True)
+
+            # calculate accuracy
+            predictions_val = self.activation.predict(output_val)
+            self.accuracy.calculate(predictions_val, y_batch, accumulating=True)
+
+        # report validation performance
+        loss_val = self.loss.accumulate()
+        accuracy_val = self.accuracy.accumulate()
+
+        print(f"validation, " +
+              f"accuracy: {accuracy_val:.3f}, " +
+              f"loss: {loss_val:.3f}")
+
+    # generate predictions
+    def predict(self, X, *, batches=None):
+        steps = 1
+
+        # if data is sliced, determine epoch steps
+        if batches:
+            steps = len(X) // batches
+            # check for overflow
+            if steps * batches < len(X):
+                steps += 1
+
+        # model predictions
+        predictions = []
+
+        for step in range(steps):
+            if batches:
+                X_batch = X[step*batches:(step+1)*batches]
+            else:
+                X_batch = X
+
+            output_batch = self.forward(X_batch, training=False)
+            predictions.append(output_batch)
+
+        # stack and return model predictions
+        return np.vstack(predictions)
