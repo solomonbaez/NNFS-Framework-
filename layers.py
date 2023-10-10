@@ -1,16 +1,13 @@
 import numpy as np
 
-
 # basic layer for data storage
 class InputLayer:
-    def forward(self, inputs):
+    def forward(self, inputs, training):
         self.output = inputs
 
 
-# standard layer for classification
-# initial values should be generally be nonzero between (-1, 1)
-
-class DeepLayer:
+# standard layer for non-convolutional
+class DenseLayer:
     # weight initializer utilized in weight distribution modification
     # used when model will not learn in accordance with learning rate adjustments
     def __init__(self, n_in, n_neurons, init_w=0.01, l1_w=0.0, l2_w=0.0, l1_b=0.0, l2_b=0.0):
@@ -24,7 +21,16 @@ class DeepLayer:
         self.l1_b = l1_b
         self.l2_b = l2_b
 
-    def forward(self, inputs):
+    # set instance parameters
+    def set(self, weights, biases):
+        self.weights = weights
+        self.biases = biases
+
+    # return instance parameters
+    def get(self):
+        return self.weights, self.biases
+
+    def forward(self, inputs, training=False):
         # perform the output calculation and store
         self.inputs = inputs
         self.output = np.dot(inputs, self.weights) + self.biases
@@ -71,8 +77,13 @@ class DropoutLayer:
     # P (r = 1) = p, P (r = 0) = q
     # where q = 1 - p and q == ratio of neurons to disable
     # importantly, output values must be scaled to match training/prediction states
-    def forward(self, inputs):
+    def forward(self, inputs, training):
         self.inputs = inputs
+
+        # determine if the model is training
+        if not training:
+            self.output = inputs.copy()
+            return
 
         # generate a scaled mask
         self.binary_mask = np.random.binomial(1, self.rate, size=inputs.shape) / \
