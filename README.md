@@ -1,4 +1,4 @@
-# koios-Framework
+# Koios-Framework
 Koios is a Python Neural Network Fremework built using NumPy that allows you to create, customize, and train neural network models for image analysis. Currently, categorical and regression analysis is supported. This framework provides flexibility and ease of use for both beginners and experienced deep learning practitioners interested in building on a streamlined paradigm.
 
 ## Table of Contents
