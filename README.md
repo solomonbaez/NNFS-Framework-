@@ -9,6 +9,7 @@ Koios is a Python Neural Network Fremework built using NumPy that allows you to 
   - [Initializing the Dataset](#initializing-the-dataset)
   - [Creating and Configuring the Model](#creating-and-configuring-the-model)
   - [Training the Model](#training-the-model)
+- [TODO](#todo)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -77,6 +78,12 @@ model.train(X, y, validation=(X_test, y_test), epochs=10000, report=100)
 ```
 
 This code trains the model on your dataset for a specified number of epochs, reporting progress every 100 epochs.
+
+## TODO
+- Adjust convolutions.ConvLayer to utilize NumPy tensor operations in place of naive for loops.
+- Finalize and integrate convolutions module contents into their intended modules (e.g. ConvLayer into the layers module).
+- Create test suite.
+- Register Koios on PyPI.
 
 ## Contributing
 
